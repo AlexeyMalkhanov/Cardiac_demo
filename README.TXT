@@ -18,12 +18,12 @@ To build the sources, you need a C++ compiler (https://software.intel.com/en-us/
 
 Build and Running Instructions
 ==========================
-To build the binary demo for Intel(R) Xeon(R) Processor, set up the appropriate Intel(R) C++ Compiler, set up
-the environment for Intel(R) MPI Library, and launch build_qt.sh. As a result, a folder "build" will appear with
-the binary.
+To build the binary demo for Intel(R) Xeon(R) Processor, set up the appropriate Intel(R) C++ Compiler, 
+set up the environment for Intel(R) MPI Library, and launch build_qt.sh. As a result, 
+a folder "build" will appear with the binary.
 To build the demo with GCC* compiler and a newer Qt library, adjust the build_qt.sh script accordingly.
-For the binary demo for Intel(R) Xeon Phi(TM) processor, set up Intel(R) Manycore Platform Software Stack, set up
-the environment for Intel(R) MPI Library, and launch build_mic.sh.
+For the binary demo for Intel(R) Xeon Phi(TM) processor, set up Intel(R) Manycore Platform Software Stack, 
+set up the environment for Intel(R) MPI Library, and launch build_mic.sh.
 As a result, the folder "build_mic" with the binary will appear.
 
 Usage:  ./heart_demo -m <mesh_file> -s <setup_file> [options]
@@ -32,9 +32,9 @@ where options could be:
         -s, --setups_file  -  defines a file containing basic model parameters
         -v, --visualize    -  enable real time visualization
         -i, --improve-locality  -  do the cuthill-mkcee reordering on the VTK mesh before calculations
-        -b, --block-gather  -  wait for completion on each gatherv operation (meaningful only with -v)
-        -w, --write-images  -  save visualization frames as images
-        -t - simulation time
+        -b, --block-gather -  wait for completion on each gatherv operation (meaningful only with -v)
+        -w, --write-images -  save visualization frames as images
+        -t                 - simulation time
 
 There are three types of mesh and setup files: small, medium, and large. The "bigger" mesh and setup defines the thoroughness of calculation. Note that when you specify the –v option to visualize the process, one of the MPI processes will be responsible for that. 
 The -i option allows you to reorder the data in the way when each of the MPI processes (process k) communicates only with the k-1 and k+1 processes. Without the –i option each process communicates with the rest ones. 
