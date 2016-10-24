@@ -227,6 +227,7 @@ public:
             int remote_rank = d.first;
             std::vector<int> &ids_to_pack = d.second;
             std::vector<double> &buf = non_loc_dependees_bufs[remote_rank];
+#pragma omp for
             for (int i=0; i<ids_to_pack.size(); i++) {
                 int j = ids_to_pack[i];
                 buf[i] = cnodes[j].state[DynamicalSystem::COUPLING_VAR_ID];
@@ -268,14 +269,16 @@ public:
         MPI_Waitall(sreqs.size(),sreqs.data(),sstats.data());
     }
     inline void wait_recvs() {
+#pragma omp master
         MPI_Waitall(rreqs.size(),rreqs.data(),rstats.data());
+#pragma omp barrier
     }
 
     inline void
     update_coupling_v2(std::vector<compute_node_t> &cnodes, const int rk4_id,
                        const double dt, const double D, const int N) {
         assert(cnodes.size() == N);
-#pragma omp parallel for
+#pragma omp for
         for (int i=0; i<N; i++) {
             compute_node_t &node = cnodes[i];
             double C = 0;
@@ -303,7 +306,7 @@ public:
     update_coupling_remotes(std::vector<compute_node_t> &cnodes, const int rk4_id,
                             const double dt, const double D, const int N,
                             std::vector<double> &remote_values) {
-#pragma omp parallel for
+#pragma omp for
         for (int i=0; i<N; i++) {
             compute_node_t &node = cnodes[i];
             double C = 0;
@@ -319,16 +322,22 @@ public:
     }
 
     inline void exchange(int rk4_id) {
+#pragma omp master
+        {
             start_recvs();
+        }
             init_send_bufs(rk4_id);
+#pragma omp master
+        {
             start_sends();
             wait_sends();
             // wait_recvs();
+        }
     }
     inline void
     make_rk_step(std::vector<compute_node_t> &cnodes, int N, double dt, double D, double time) {
 
-#pragma omp parallel for
+#pragma omp for
         for (int i=0; i<N; i++) {
             // if (fabs(cnodes[i].cell.Y[DynamicalSystem::COUPLING_VAR_ID]) > 200) {
                 // fprintf(stderr,"attach: i=%d, V=%g, |V|=%g\n",i, cnodes[i].cell.Y[DynamicalSystem::COUPLING_VAR_ID],
@@ -348,7 +357,7 @@ public:
 
         update_coupling_remotes(cnodes, 0, dt, D, N, non_local_values);
 
-#pragma omp parallel for
+#pragma omp for
         for (int i=0; i<N; i++) {
             for (int j=0; j<DynamicalSystem::SYS_SIZE; j++)
                 cnodes[i].cell.Y[j] = cnodes[i].state[j] + cnodes[i].rk4[0][j]/2.0;
@@ -362,7 +371,7 @@ public:
         wait_recvs();
 
         update_coupling_remotes(cnodes, 1, dt, D, N, non_local_values);
-#pragma omp parallel for
+#pragma omp for
         for (int i=0; i<N; i++) {
             for (int j=0; j<DynamicalSystem::SYS_SIZE; j++)
                 cnodes[i].cell.Y[j] = cnodes[i].state[j] + cnodes[i].rk4[1][j]/2.0;
@@ -376,7 +385,7 @@ public:
         wait_recvs();
 
         update_coupling_remotes(cnodes, 2, dt, D, N, non_local_values);
-#pragma omp parallel for
+#pragma omp for
         for (int i=0; i<N; i++) {
             for (int j=0; j<DynamicalSystem::SYS_SIZE; j++)
                 cnodes[i].cell.Y[j] = cnodes[i].state[j] + cnodes[i].rk4[2][j];
@@ -391,7 +400,7 @@ public:
 
         update_coupling_remotes(cnodes, 3, dt, D, N, non_local_values);
 
-#pragma omp parallel for
+#pragma omp for
         for (int i=0; i<N; i++) {
             for (int j=0; j<DynamicalSystem::SYS_SIZE; j++)
                 cnodes[i].cell.Y[j] = cnodes[i].state[j] +
@@ -543,19 +552,22 @@ public:
         double t_start = omp_get_wtime();
         coll_count=0;
         TimeToSolve += start_time;
-#pragma omp parallel
+#pragma omp parallel private(time)
         {
-	    #pragma omp master
+#pragma omp master
             {
                 fprintf(stderr,"RANK %d is using %d OMP threads\n",
                         mpi_rank, omp_get_num_threads());
             }
-        }
+
             int local_node_num = cnodes.size();
 
             while (time < TimeToSolve) {
                 make_rk_step(cnodes, local_node_num,dt,D,time);
                 time += dt;
+
+#pragma omp master
+                {
                     if (mpi_rank == 0) {
                         if (time / TimeToSolve * 100 > percents_done) {
                             solve_speed = time/(omp_get_wtime()-t_start);
@@ -571,7 +583,10 @@ public:
                         collectDataForVisualization();
                         next_draw_time += draw_time_step;
                     }
+
+                }
             }
+        }
 
         if (mpi_rank == 0) {
             std::cout << "  progress: " <<
